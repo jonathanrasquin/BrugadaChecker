@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brugada Medicijnchecker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #c0392b;
+      color: #fff;
+      padding: 1.25rem 1rem;
+      text-align: center;
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; }
+    header p  { font-size: 0.85rem; opacity: 0.9; margin-top: 0.25rem; }
+
+    .disclaimer {
+      background: #fff3cd;
+      border-left: 4px solid #f59e0b;
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    main { max-width: 680px; margin: 1.5rem auto; padding: 0 1rem; }
+
+    .search-box {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .search-box input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 2px solid #cbd5e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-box input:focus { border-color: #c0392b; }
+    .search-box button {
+      padding: 0.75rem 1.25rem;
+      background: #c0392b;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .search-box button:hover { background: #a93226; }
+
+    #results { margin-top: 0.5rem; }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      border-left: 5px solid #ccc;
+    }
+    .card.AVOID       { border-left-color: #e53e3e; }
+    .card.PREF_AVOID  { border-left-color: #dd6b20; }
+    .card.CONDITIONAL { border-left-color: #d69e2e; }
+    .card.SAFE        { border-left-color: #38a169; }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .card-name  { font-size: 1.1rem; font-weight: 700; }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.65rem;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge.AVOID       { background: #fed7d7; color: #c53030; }
+    .badge.PREF_AVOID  { background: #feebc8; color: #c05621; }
+    .badge.CONDITIONAL { background: #fefcbf; color: #744210; }
+    .badge.SAFE        { background: #c6f6d5; color: #276749; }
+
+    .badge-label.AVOID       { color: #c53030; font-weight: 600; }
+    .badge-label.PREF_AVOID  { color: #c05621; font-weight: 600; }
+    .badge-label.CONDITIONAL { color: #744210; font-weight: 600; }
+    .badge-label.SAFE        { color: #276749; font-weight: 600; }
+
+    .card-category { font-size: 0.78rem; color: #718096; margin-top: 0.25rem; }
+    .card-note     { font-size: 0.82rem; color: #4a5568; margin-top: 0.5rem; line-height: 1.5; }
+    .card-products {
+      font-size: 0.8rem;
+      color: #4a5568;
+      margin-top: 0.5rem;
+    }
+    .card-products strong { color: #2d3748; }
+
+    .no-result {
+      text-align: center;
+      color: #718096;
+      padding: 2rem;
+      font-size: 0.95rem;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 0.78rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .dot-avoid      { background: #e53e3e; }
+    .dot-pref       { background: #dd6b20; }
+    .dot-cond       { background: #d69e2e; }
+    .dot-safe       { background: #38a169; }
+
+    footer {
+      text-align: center;
+      font-size: 0.72rem;
+      color: #a0aec0;
+      padding: 2rem 1rem;
+      line-height: 1.7;
+    }
+    footer a { color: #a0aec0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚠️ Brugada Medicijnchecker</h1>
+  <p>Zoek op generieke naam, merknaam of Belgische productnaam</p>
+</header>
+
+<div class="disclaimer">
+  <strong>Medische disclaimer:</strong> Dit hulpmiddel is uitsluitend bestemd als eerste oriëntatie voor patiënten met
+  Brugada-syndroom en hun zorgverleners. Raadpleeg altijd een cardioloog of specialist voor persoonlijk advies.
+  Classificaties zijn gebaseerd op <a href="https://www.brugadadrugs.org" target="_blank" rel="noopener">brugadadrugs.org</a>
+  en worden zonder garantie verstrekt. Data kunnen verouderd zijn.
+</div>
+
+<main>
+  <div class="search-box">
+    <input type="search" id="query" placeholder="bijv. flecainide, Tambocor, Seroxat…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button onclick="search()">Zoeken</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot dot-avoid"></div> <strong>VERMIJDEN</strong> – gecontra-indiceerd</div>
+    <div class="legend-item"><div class="legend-dot dot-pref"></div> <strong>LIEFST VERMIJDEN</strong> – met grote voorzichtigheid</div>
+    <div class="legend-item"><div class="legend-dot dot-cond"></div> <strong>VOORZICHTIG</strong> – bewaking aanbevolen</div>
+    <div class="legend-item"><div class="legend-dot dot-safe"></div> <strong>VEILIG</strong> – algemeen aanvaard veilig</div>
+  </div>
+
+  <div id="results"></div>
+</main>
+
+<footer>
+  Productnamenkoppeling via BCFI/FAMHP-gegevens (MP.csv, Sam.csv, Stof.csv).<br>
+  Gegenereerd met <code>scripts/generate_csv_lookup.py</code>.
+  Brugada-risicoklassen gebaseerd op <a href="https://www.brugadadrugs.org" target="_blank" rel="noopener">brugadadrugs.org</a>.<br>
+  Laatste update CSV-data: zie repository.
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// BRUGADA RISICO-DATABASE
+// Risicoklassen: AVOID | PREF_AVOID | CONDITIONAL | SAFE
+//   AVOID       = gecontra-indiceerd (bewezen Brugada-patroon te ontmaskeren)
+//   PREF_AVOID  = liefst vermijden, enkel na overleg cardioloog
+//   CONDITIONAL = gebruik met bewaking; niet absoluut gecontra-indiceerd
+//   SAFE        = algemeen aanvaard als veilig bij Brugada
+//
+// Bron: brugadadrugs.org (Antzelevitch et al. + updates)
+// ─────────────────────────────────────────────────────────────────────────────
+const DB = [
+  // ── ANTIARITMICA ─────────────────────────────────────────────────────────
+  { generic: "flecainide",      risk: "AVOID",      category: "Antiaritmicum (klasse Ic)",
+    note: "Sterk natriumkanaalblokker. Meest frequent gebruikt voor Brugada-diagnostiek én absoluut gecontra-indiceerd therapeutisch." },
+  { generic: "propafenone",     risk: "AVOID",      category: "Antiaritmicum (klasse Ic)",
+    note: "Natriumkanaalblokker. Vermijden." },
+  { generic: "ajmaline",        risk: "AVOID",      category: "Antiaritmicum (klasse Ia)",
+    note: "Uitsluitend gebruikt voor provocatietests. Strikt ziekenhuisgebruik onder bewaking; therapeutisch absoluut vermijden." },
+  { generic: "procainamide",    risk: "AVOID",      category: "Antiaritmicum (klasse Ia)",
+    note: "Natriumkanaalblokker; kan Brugada-patroon ontmaskeren." },
+  { generic: "disopyramide",    risk: "AVOID",      category: "Antiaritmicum (klasse Ia)",
+    note: "Natriumkanaalblokker. Vermijden." },
+  { generic: "cibenzoline",     risk: "AVOID",      category: "Antiaritmicum (klasse Ia/Ic)",
+    note: "Niet beschikbaar in België. Natriumkanaalblokker." },
+  { generic: "pilsicainide",    risk: "AVOID",      category: "Antiaritmicum (klasse Ic)",
+    note: "Niet beschikbaar in België." },
+  { generic: "quinidine",       risk: "PREF_AVOID", category: "Antiaritmicum (klasse Ia)",
+    note: "Paradoxaal: hoge doses zijn gevaarlijk, maar lage doses quinidine worden soms therapeutisch ingezet om VF-storms te onderdrukken (enkel door expert). Vermijden zonder expertise." },
+  { generic: "vernakalant",     risk: "PREF_AVOID", category: "Antiaritmicum (klasse I + III)",
+    note: "Natriumkanaalblokker met kanaalselectiviteit; gebruik enkel in gecontroleerde ziekenhuisomgeving." },
+  { generic: "sotalol",         risk: "PREF_AVOID", category: "Antiaritmicum (klasse III)",
+    note: "QT-verlengend; bij Brugada niet de eerste keus." },
+  { generic: "dronedarone",     risk: "PREF_AVOID", category: "Antiaritmicum (multikanaal)",
+    note: "Blokkeert Na-, K- en Ca-kanalen en heeft anti-adrenerge werking." },
+  { generic: "amiodarone",      risk: "PREF_AVOID", category: "Antiaritmicum (klasse III/multikanaal)",
+    note: "Hoewel amiodarone Na-kanalen blokkeert, wordt het soms gebruikt bij ernstige aritmieën. Overleg cardioloog vereist." },
+  { generic: "ibutilide",       risk: "AVOID",      category: "Antiaritmicum (klasse III)",
+    note: "Natriumkanaalblokker." },
+  { generic: "ranolazine",      risk: "PREF_AVOID", category: "Anti-angina (late Na-blokker)",
+    note: "Late natriumstroomblokker; voorzichtigheid bij Brugada." },
+
+  // ── LOKALE ANESTHETICA ────────────────────────────────────────────────────
+  { generic: "bupivacaine",     risk: "AVOID",      category: "Lokaal anestheticum",
+    note: "Systemische natriumkanaalblokker. Epiduraal/spinaal gebruik in lage dosis is in de praktijk niet absoluut gecontra-indiceerd maar vereist overleg." },
+  { generic: "levobupivacaine", risk: "AVOID",      category: "Lokaal anestheticum",
+    note: "Enantiomeer van bupivacaine; gelijkaardig risico." },
+  { generic: "procaine",        risk: "AVOID",      category: "Lokaal anestheticum",
+    note: "Systemisch natriumkanaalblokker. Niet gebruiken als antiaritmicum." },
+  { generic: "lidocaine",       risk: "CONDITIONAL", category: "Lokaal anestheticum / antiaritmicum (klasse Ib)",
+    note: "Klasse Ib – minder risico dan klasse Ic/Ia. Topische en infiltratie-vormen zijn doorgaans veilig. IV-gebruik vereist monitoring. Overleg specialist." },
+
+  // ── ANESTHESIE / ANALGETICA ───────────────────────────────────────────────
+  { generic: "ketamine",        risk: "PREF_AVOID", category: "Anestheticum / analgeticum",
+    note: "Natriumkanaalblokker. Gerapporteerde gevallen van Brugada-patroon. Gebruik enkel in gecontroleerde omgeving." },
+  { generic: "esketamine",      risk: "PREF_AVOID", category: "Anestheticum / antidepressivum",
+    note: "S-enantiomeer van ketamine; gelijkaardig natriumkanaaleffect. Overleg vereist." },
+  { generic: "propofol",        risk: "PREF_AVOID", category: "Intraveneus anestheticum",
+    note: "Natriumkanaalblokker bij hoge dosering. Gerapporteerde gevallen van Brugada-patroon (propofol-infusiesyndroom). Kortdurend gebruik door anesthesist is niet absoluut gecontra-indiceerd." },
+  { generic: "tramadol",        risk: "PREF_AVOID", category: "Opioid analgeticum",
+    note: "Natriumkanaalblokker (met name actieve metaboliet). Gerapporteerde gevallen van Brugada-patroon." },
+
+  // ── CALCIUMANTAGONISTEN ───────────────────────────────────────────────────
+  { generic: "verapamil",       risk: "PREF_AVOID", category: "Calciumantagonist (niet-dihydropyridine)",
+    note: "Kan Brugada-patroon ontmaskeren. Negatief inotroop en chronotroop. Vermijden bij Brugada." },
+  { generic: "diltiazem",       risk: "PREF_AVOID", category: "Calciumantagonist (niet-dihydropyridine)",
+    note: "Gelijkaardig mechanisme als verapamil; voorzichtigheid." },
+
+  // ── BÈTABLOKKERS ─────────────────────────────────────────────────────────
+  { generic: "propranolol",     risk: "SAFE",       category: "Bètablokker",
+    note: "Niet-selectieve bètablokker. Doorgaans veilig bij Brugada. Kan symptomatische bradycardie geven." },
+
+  // ── ANTI-EPILEPTICA ───────────────────────────────────────────────────────
+  { generic: "carbamazepine",   risk: "PREF_AVOID", category: "Anti-epilepticum",
+    note: "Natriumkanaalblokker. Meerdere gevallen van Brugada-patroon gerapporteerd." },
+  { generic: "oxcarbazepine",   risk: "PREF_AVOID", category: "Anti-epilepticum",
+    note: "Natriumkanaalblokker; gelijkaardig risico als carbamazepine." },
+  { generic: "lamotrigine",     risk: "PREF_AVOID", category: "Anti-epilepticum",
+    note: "Natriumkanaalblokker. Incidentele gevallen gerapporteerd. Overleg specialist." },
+
+  // ── ANTIDEPRESSIVA – TCA ──────────────────────────────────────────────────
+  { generic: "amitriptyline",   risk: "AVOID",      category: "Tricyclisch antidepressivum (TCA)",
+    note: "Sterke natriumkanaalblokker. Absoluut vermijden." },
+  { generic: "clomipramine",    risk: "AVOID",      category: "Tricyclisch antidepressivum (TCA)",
+    note: "Sterke natriumkanaalblokker." },
+  { generic: "desipramine",     risk: "AVOID",      category: "Tricyclisch antidepressivum (TCA)",
+    note: "Natriumkanaalblokker." },
+  { generic: "imipramine",      risk: "AVOID",      category: "Tricyclisch antidepressivum (TCA)",
+    note: "Natriumkanaalblokker." },
+  { generic: "nortriptyline",   risk: "AVOID",      category: "Tricyclisch antidepressivum (TCA)",
+    note: "Natriumkanaalblokker." },
+  { generic: "trimipramine",    risk: "AVOID",      category: "Tricyclisch antidepressivum (TCA)",
+    note: "Natriumkanaalblokker." },
+
+  // ── ANTIDEPRESSIVA – SSRI/SNRI ────────────────────────────────────────────
+  { generic: "fluoxetine",      risk: "PREF_AVOID", category: "SSRI",
+    note: "Natriumkanaalblokker in hoge dosis. Meerdere gevallen van Brugada-patroon beschreven." },
+  { generic: "paroxetine",      risk: "PREF_AVOID", category: "SSRI",
+    note: "Natriumkanaalblokker. Voorzichtigheid vereist." },
+  { generic: "citalopram",      risk: "PREF_AVOID", category: "SSRI",
+    note: "QT-verlengend + natriumkanaaleffecten." },
+  { generic: "escitalopram",    risk: "PREF_AVOID", category: "SSRI",
+    note: "QT-verlengend. Gelijkaardig risico als citalopram." },
+  { generic: "sertraline",      risk: "PREF_AVOID", category: "SSRI",
+    note: "Milder natriumkanaaleffect; overleg aanbevolen." },
+  { generic: "fluvoxamine",     risk: "PREF_AVOID", category: "SSRI",
+    note: "Natriumkanaalblokker. Overleg aanbevolen." },
+  { generic: "venlafaxine",     risk: "PREF_AVOID", category: "SNRI",
+    note: "Natriumkanaalblokker, met name bij overdosering." },
+  { generic: "bupropion",       risk: "PREF_AVOID", category: "Atypisch antidepressivum (NDRI)",
+    note: "Natriumkanaalblokker. Lagere drempel voor aanvallen en aritmieën. Voorzichtigheid." },
+
+  // ── ANTIPSYCHOTICA ────────────────────────────────────────────────────────
+  { generic: "chlorpromazine",  risk: "AVOID",      category: "Antipsychoticum (fenothiazine)",
+    note: "Natriumkanaalblokker." },
+  { generic: "thioridazine",    risk: "AVOID",      category: "Antipsychoticum (fenothiazine)",
+    note: "Natriumkanaalblokker; ook sterk QT-verlengend." },
+  { generic: "perphenazine",    risk: "AVOID",      category: "Antipsychoticum (fenothiazine)",
+    note: "Natriumkanaalblokker." },
+  { generic: "loxapine",        risk: "AVOID",      category: "Antipsychoticum",
+    note: "Natriumkanaalblokker." },
+  { generic: "haloperidol",     risk: "PREF_AVOID", category: "Antipsychoticum (butyrofenon)",
+    note: "QT-verlengend + natriumkanaaleffecten. Voorzichtig." },
+  { generic: "droperidol",      risk: "PREF_AVOID", category: "Antipsychoticum / anti-emeticum",
+    note: "QT-verlengend. Voorzichtig." },
+  { generic: "quetiapine",      risk: "PREF_AVOID", category: "Atypisch antipsychoticum",
+    note: "Natriumkanaaleffecten. Overleg aanbevolen." },
+  { generic: "olanzapine",      risk: "PREF_AVOID", category: "Atypisch antipsychoticum",
+    note: "Natriumkanaaleffecten in hoge dosis." },
+  { generic: "risperidone",     risk: "PREF_AVOID", category: "Atypisch antipsychoticum",
+    note: "QT-verlengend + natriumkanaaleffecten." },
+  { generic: "ziprasidone",     risk: "PREF_AVOID", category: "Atypisch antipsychoticum",
+    note: "Sterk QT-verlengend." },
+  { generic: "aripiprazole",    risk: "CONDITIONAL", category: "Atypisch antipsychoticum",
+    note: "Minder natriumkanaalactiviteit dan andere antipsychotica. Voorzichtigheid aanbevolen." },
+
+  // ── STEMMINGSSTABILISATOREN ───────────────────────────────────────────────
+  { generic: "lithium",         risk: "PREF_AVOID", category: "Stemmingsstabilisator",
+    note: "Gerapporteerde ontmaskering van Brugada-patroon, ook bij therapeutische spiegels." },
+
+  // ── MAAGDARMMIDDELEN / ANTI-EMETICA ───────────────────────────────────────
+  { generic: "metoclopramide",  risk: "PREF_AVOID", category: "Prokineticum / anti-emeticum",
+    note: "Natriumkanaalblokker bij hoge dosis. Voorzichtig." },
+  { generic: "domperidone",     risk: "PREF_AVOID", category: "Prokineticum / anti-emeticum",
+    note: "QT-verlengend. Europese EMA-waarschuwing voor hoog risico. Overleg aanbevolen." },
+  { generic: "cisapride",       risk: "AVOID",      category: "Prokineticum (niet meer beschikbaar)",
+    note: "Sterk QT-verlengend. Uit handel genomen." },
+  { generic: "ondansetron",     risk: "PREF_AVOID", category: "Anti-emeticum (5-HT3-antagonist)",
+    note: "QT-verlengend + natriumkanaaleffecten in hoge dosis. Overleg aanbevolen." },
+
+  // ── ANTIHISTAMINICA ───────────────────────────────────────────────────────
+  { generic: "diphenhydramine", risk: "PREF_AVOID", category: "Antihistaminicum (1e generatie)",
+    note: "Natriumkanaalblokker. Gerapporteerde gevallen van Brugada-patroon." },
+  { generic: "dimenhydrinate",  risk: "PREF_AVOID", category: "Antihistaminicum (bevat difenhydramine)",
+    note: "Bevat difenhydramine (natriumkanaalblokker)." },
+  { generic: "fexofenadine",    risk: "PREF_AVOID", category: "Antihistaminicum (2e generatie)",
+    note: "Incidentele gevallen gerapporteerd; gering natriumkanaaleffect. Voorzichtigheid." },
+
+  // ── DIURETICA ─────────────────────────────────────────────────────────────
+  { generic: "indapamide",      risk: "PREF_AVOID", category: "Diureticum / antihypertensivum",
+    note: "Natriumkanaalblokker + elektrolyteffecten die Brugada kunnen ontmaskeren." },
+
+  // ── ANTIBIOTICA ───────────────────────────────────────────────────────────
+  { generic: "erythromycin",    risk: "PREF_AVOID", category: "Macrolide-antibioticum",
+    note: "QT-verlengend + natriumkanaaleffecten. Overleg aanbevolen." },
+  { generic: "clarithromycin",  risk: "PREF_AVOID", category: "Macrolide-antibioticum",
+    note: "QT-verlengend + natriumkanaalblokker. Meerdere gevallen gerapporteerd." },
+  { generic: "azithromycin",    risk: "PREF_AVOID", category: "Macrolide-antibioticum",
+    note: "QT-verlengend. Gerapporteerde gevallen." },
+  { generic: "moxifloxacin",    risk: "PREF_AVOID", category: "Fluorochinoloon-antibioticum",
+    note: "QT-verlengend + natriumkanaalblokker." },
+
+  // ── SCHIMMELWERENDE MIDDELEN ──────────────────────────────────────────────
+  { generic: "itraconazole",    risk: "PREF_AVOID", category: "Azool-antimycoticum",
+    note: "QT-verlengend; CYP3A4-remmer waardoor blootstelling aan andere risicomiddelen toeneemt." },
+  { generic: "fluconazole",     risk: "PREF_AVOID", category: "Azool-antimycoticum",
+    note: "QT-verlengend; CYP-remmer." },
+  { generic: "ketoconazole",    risk: "PREF_AVOID", category: "Azool-antimycoticum",
+    note: "Niet meer systemisch beschikbaar in België. QT-verlengend." },
+  { generic: "voriconazole",    risk: "PREF_AVOID", category: "Azool-antimycoticum",
+    note: "QT-verlengend." },
+
+  // ── ANTIMALARICA ─────────────────────────────────────────────────────────
+  { generic: "chloroquine",     risk: "AVOID",      category: "Antimalaricum",
+    note: "Sterke natriumkanaalblokker. Absoluut vermijden." },
+  { generic: "hydroxychloroquine", risk: "PREF_AVOID", category: "Antimalaricum / DMARD",
+    note: "Natriumkanaalblokker + QT-verlengend. Gerapporteerde gevallen. Alleen na zorgvuldig overleg." },
+
+  // ── RECREATIEVE MIDDELEN ──────────────────────────────────────────────────
+  { generic: "cocaine",         risk: "AVOID",      category: "Stimulerend middel (illegaal)",
+    note: "Sterke natriumkanaalblokker. Kan plotselinge hartdood veroorzaken bij Brugada. Absoluut vermijden." },
+  { generic: "alcohol",         risk: "PREF_AVOID", category: "Alcohol",
+    note: "Overmatig alcoholgebruik kan Brugada-patroon ontmaskeren en VF uitlokken. Matig gebruik wordt doorgaans getolereerd." },
+  { generic: "cannabis",        risk: "PREF_AVOID", category: "Cannabinoïden",
+    note: "Gerapporteerde gevallen van Brugada-patroon. Voorzichtigheid aanbevolen." },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HANDMATIGE ALIASSEN
+// Generiek → extra zoektermen (niet afgeleid van CSV)
+// ─────────────────────────────────────────────────────────────────────────────
+const ALIASES = {
+  // Antiaritmica
+  "flecainide":       ["flécaïnide", "flecaine"],
+  "propafenone":      ["propafénone", "propafenon"],
+  "procainamide":     ["procaïnamide"],
+  "disopyramide":     ["disopyramid"],
+  "ajmaline":         ["ajmalin"],
+  "vernakalant":      ["vernakalant hcl"],
+  "quinidine":        ["chinidine", "quinidin"],
+  "amiodarone":       ["amiodaron", "amiodarone hcl"],
+  "sotalol":          ["sotalol hcl"],
+  "dronedarone":      ["multaq"],
+  "ibutilide":        ["corvert"],
+  "ranolazine":       ["ranolazin"],
+  // Lokale anesthetica / anesthesie
+  "bupivacaine":      ["bupivacaïne", "bupivacain"],
+  "levobupivacaine":  ["levobupivacaïne", "levobupivacain"],
+  "procaine":         ["procaïne"],
+  "lidocaine":        ["lidocaïne", "lignocaine", "lignocaïne", "xylocaïne"],
+  "ketamine":         ["ketamin", "kétamine"],
+  "esketamine":       ["esketamin", "eskétamine"],
+  "propofol":         ["propofol lipuro"],
+  // Anti-epileptica
+  "carbamazepine":    ["carbamazepin", "cbz"],
+  "oxcarbazepine":    ["oxcarbazepine", "oxcarbazepina"],
+  "lamotrigine":      ["lamotrigin"],
+  // Pijnstilling
+  "tramadol":         ["tramol", "tramadolhydrochloride"],
+  // TCA
+  "amitriptyline":    ["amitriptylline", "amitriptylin"],
+  "clomipramine":     ["clomipraminehydrochloride"],
+  "desipramine":      ["desimipramine"],
+  "imipramine":       ["imipramin"],
+  "nortriptyline":    ["nortriptylin"],
+  "trimipramine":     ["trimipramin"],
+  // SSRI/SNRI
+  "fluoxetine":       ["fluoxetin", "fluoxétine", "prozac"],
+  "paroxetine":       ["paroxetin"],
+  "citalopram":       ["citalopram hbr"],
+  "escitalopram":     ["escitalopram oxalat"],
+  "sertraline":       ["sertralin"],
+  "fluvoxamine":      ["fluvoxamin", "luvox", "floxyfral", "fevarin"],
+  "venlafaxine":      ["venlafaxin"],
+  "bupropion":        ["bupropion hcl", "buproprion"],
+  // Antipsychotica
+  "chlorpromazine":   ["largactil"],
+  "thioridazine":     ["thioridazin", "melleril"],
+  "perphenazine":     ["fentazin", "trilafon"],
+  "loxapine":         ["loxapin", "loxapac"],
+  "haloperidol":      ["haloperidol decanoaat"],
+  "droperidol":       ["droleptan"],
+  "quetiapine":       ["quetiapine fumaraat"],
+  "olanzapine":       ["olanzapin"],
+  "risperidone":      ["risperidon"],
+  "ziprasidone":      ["geodon", "zeldox"],
+  "aripiprazole":     ["aripiprazol"],
+  // Stemmingsstabilisatoren
+  "lithium":          ["lithiumcarbonaat", "lithiumcitraat", "lithiumchloride"],
+  // Maagdarm / anti-emetica
+  "metoclopramide":   ["metoclopramid"],
+  "domperidone":      ["domperidon"],
+  "ondansetron":      ["ondansetron hcl"],
+  "cisapride":        ["prepulsid"],
+  "droperidol":       ["dehydrobenzperidol"],
+  // Antihistaminica
+  "diphenhydramine":  ["difenhydramine", "difenhydramine hcl", "benadryl"],
+  "dimenhydrinate":   ["dimenhydrinaat", "vomex"],
+  "fexofenadine":     ["fexofenadine hcl", "allegra"],
+  // Cardiovasculair
+  "verapamil":        ["verapamil hcl"],
+  "indapamide":       ["indapamid"],
+  "propranolol":      ["propranolol hcl"],
+  "diltiazem":        ["diltiazem hcl", "tildiem", "dilzem"],
+  // Antibiotica
+  "erythromycin":     ["erythromycine", "erythromycin estolaat"],
+  "clarithromycin":   ["clarithromycine"],
+  "azithromycin":     ["azithromycine"],
+  "moxifloxacin":     ["moxifloxacine", "moxifloxacin hcl"],
+  // Antimycotica
+  "itraconazole":     ["itraconazol"],
+  "fluconazole":      ["fluconazol"],
+  "ketoconazole":     ["ketoconazol", "nizoral"],
+  "voriconazole":     ["voriconazol", "vfend"],
+  // Antimalarica
+  "chloroquine":      ["chloroquine fosfaat", "nivaquine"],
+  "hydroxychloroquine": ["hydroxychloroquine sulfaat"],
+  // Overig
+  "cocaine":          ["cocaïne", "cocain"],
+  "cannabis":         ["thc", "cbd", "marihuana", "hasj", "wiet"],
+  "alcohol":          ["ethanol"],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+/* BEGIN CSV_LOOKUP */
+// Automatisch gegenereerd door scripts/generate_csv_lookup.py
+// Bron: BCFI/FAMHP Stof.csv, Sam.csv, MP.csv
+const CSV_LOOKUP = {
+  "amiodarone": ["Amiodarone EG", "Cordarone"],
+  "amitriptyline": ["Redomex"],
+  "aripiprazole": ["Abilify", "Aripiprazol Krka", "Aripiprazol Sandoz", "Aripiprazole AB", "Aripiprazole EG", "Aripiprazole Mylan Pharma", "Aripiprazole Sandoz", "Aripiprazole Teva"],
+  "azithromycin": ["Azithromycin AB", "Azithromycine EG", "Azithromycine Sandoz", "Azithromycine Teva", "Zitromax"],
+  "bupivacaine": ["Marcaine", "Marcaine met Adrenaline"],
+  "bupropion": ["Bupropion Teva", "Mysimba", "Wellbutrin", "Zyban"],
+  "carbamazepine": ["Tegretol"],
+  "citalopram": ["Cipramil", "Citalopram AB", "Citalopram EG", "Citalopram Sandoz", "Citalopram Teva", "Citalopram-Ratiopharm"],
+  "clarithromycin": ["Biclar", "Clarithromycin Krka", "Clarithromycin Sandoz", "Clarithromycine EG", "Clarithromycine Sandoz", "Heliclar", "Maclar"],
+  "clomipramine": ["Anafranil"],
+  "dimenhydrinate": ["Arlevertan", "R Calm Dimenhydrinate"],
+  "diphenhydramine": ["Nustasium", "R Calm"],
+  "disopyramide": ["Rythmodan"],
+  "domperidone": ["Domperidon AB", "Domperidon Teva", "Domperidone EG", "Domperidone Teva", "Motilium", "Zilium"],
+  "erythromycin": ["Erythrocine", "Inderm", "Zineryt"],
+  "escitalopram": ["Escidivule", "Escitalopram AB", "Escitalopram EG", "Escitalopram Sandoz", "Escitalopram Teva", "Escitalopram Viatris", "Sipralexa"],
+  "esketamine": ["Esketamine Kalceks", "Spravato", "Vesierra"],
+  "fexofenadine": ["Allegra Tab", "Telfast"],
+  "flecainide": ["Apocard", "Flecainide EG", "Flecainide Sandoz", "Flecateva", "Tambocor"],
+  "fluconazole": ["Diflucan", "Fluconazol AB", "Fluconazol EG", "Fluconazol Fresenius Kabi", "Fluconazole B. Braun", "Fluconazole Sandoz", "Fluconazole Teva", "Fluconazole Viatris"],
+  "fluoxetine": ["Fluoxetin AB", "Fluoxetine EG", "Fluoxetine Viatris", "Fluoxone"],
+  "haloperidol": ["Haldol"],
+  "hydroxychloroquine": ["Plaquenil"],
+  "imipramine": ["Tofranil"],
+  "indapamide": ["Coperindo", "Coversyl Plus", "Fludex", "Indapamide EG", "Perindopril / Indapamide / Amlodipine EG", "Perindopril / Indapamide / Amlodipine Krka", "Perindopril / Indapamide / Amlodipine Teva", "Perindopril / Indapamide Krka", "Perindopril / Indapamide Sandoz", "Perindopril / Indapamide Viatris", "Preterax", "Triplixam"],
+  "itraconazole": ["Itraconazol AB", "Itraconazol Sandoz", "Itraconazole EG", "Itraconazole Teva", "Sporanox"],
+  "ketamine": ["Ketalar"],
+  "lamotrigine": ["Lambipol", "Lamictal", "Lamotrigine EG"],
+  "levobupivacaine": ["Levobupivacaine Fresenius Kabi"],
+  "lidocaine": ["Colludol", "Collutabs", "Depo-Medrol + Lidocaine", "Emla", "Golaseptine-Lidocaine", "Instillagel", "Lemocin", "Lidocaine Aguettant", "Lidocaine Grindeks", "Lidocaïne / Adrenaline Aguettant", "Lignospan", "Linisol", "Medica", "Mydrane", "Ophtesic", "Oraqix", "Otipax", "Panotile", "Rapydan", "Strepsils + Lidocaine", "TriAnal", "Versatis", "Xogel", "Xylocaine", "Xylocaine met Adrenaline", "Xylocard", "Xylonor"],
+  "lithium": ["Camcolit"],
+  "metoclopramide": ["Primperan"],
+  "moxifloxacin": ["Avelox", "Kanavig", "Moxifloxacin AB", "Moxifloxacin Sandoz", "Moxifloxacine EG", "Moxifloxacine Fresenius Kabi", "Moxifloxacine Teva"],
+  "nortriptyline": ["Nortrilen"],
+  "olanzapine": ["Olanzapine AB", "Olanzapine EG", "Olanzapine Sandoz", "Olanzapine Teva", "Zypadhera", "Zyprexa"],
+  "ondansetron": ["Ondansetron Accord Healthcare", "Ondansetron B. Braun", "Ondansetron EG", "Ondansetron Fresenius Kabi", "Ondansetron Kalceks", "Ondansetron Teva", "Ondansetron Viatris", "Zofran", "Zofsetron"],
+  "oxcarbazepine": ["Oxcarbazepine Viatris", "Trileptal"],
+  "paroxetine": ["Paroxetine AB", "Paroxetine EG", "Paroxetine Sandoz", "Paroxetine Teva", "Paroxetine Viatris", "Seroxat"],
+  "procaine": ["Procaine HCl Sterop"],
+  "propafenone": ["Rytmonorm"],
+  "propofol": ["Diprivan", "Propofol B. Braun", "Propolipid"],
+  "propranolol": ["Hemangiol", "Inderal", "Propranolol EG", "Propranolol Teva"],
+  "quetiapine": ["Quetiapin Sandoz", "Quetiapine AB", "Quetiapine EG", "Quetiapine Krka", "Quetiapine Teva", "Quetiapine Viatris", "Seroquel"],
+  "ranolazine": ["Ranexa"],
+  "risperidone": ["Risperdal", "Risperidon Sandoz", "Risperidone EG", "Risperidone Teva"],
+  "sertraline": ["Serlain", "Sertraline AB", "Sertraline EG", "Sertraline Sandoz", "Sertraline Teva", "Sertraline Viatris"],
+  "sotalol": ["Sotalex", "Sotalol Sandoz", "Sotalol Viatris"],
+  "tramadol": ["Algotra", "Contramal", "Skudexa", "Tradonal", "Tramadol / Paracetamol AB", "Tramadol / Paracetamol EG", "Tramadol / Paracetamol Krka", "Tramadol / Paracetamol Teva", "Tramadol EG", "Tramadol Krka", "Tramadol Sandoz", "Tramium", "Zaldiar"],
+  "venlafaxine": ["Efexor", "Venlafaxin Sandoz", "Venlafaxine AB", "Venlafaxine EG", "Venlafaxine Teva"],
+  "verapamil": ["Isoptine", "Lodixal"],
+  "vernakalant": ["Brinavess"],
+};
+/* END CSV_LOOKUP */
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ZOEKLOGICA
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Normalize a string: lowercase + remove accents. */
+function norm(s) {
+  return s.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s\/]/g, " ")
+    .trim();
+}
+
+/**
+ * Bouw een omgekeerde lookup: genormaliseerde zoekterm → generieke drug-key.
+ * Bronnen: DB.generic, ALIASES-waarden, CSV_LOOKUP-waarden.
+ */
+function buildLookup() {
+  const lookup = new Map();
+
+  const addEntry = (term, generic) => {
+    const key = norm(term);
+    if (key && !lookup.has(key)) lookup.set(key, generic);
+    // Prefix-optimalisatie: ook eerste 3+ tekens voor prefix-zoeken
+  };
+
+  for (const entry of DB) {
+    addEntry(entry.generic, entry.generic);
+    // CSV_LOOKUP productnamen
+    const csvNames = CSV_LOOKUP[entry.generic] || [];
+    for (const name of csvNames) addEntry(name, entry.generic);
+    // Handmatige aliassen
+    const manualAliases = ALIASES[entry.generic] || [];
+    for (const alias of manualAliases) addEntry(alias, entry.generic);
+  }
+  return lookup;
+}
+
+const LOOKUP = buildLookup();
+
+function findMatches(query) {
+  const q = norm(query);
+  if (q.length < 2) return [];
+
+  const matched = new Set();
+
+  // 1. Exacte overeenkomst
+  if (LOOKUP.has(q)) matched.add(LOOKUP.get(q));
+
+  // 2. Prefix- en substring-overeenkomst in de lookup-sleutels
+  for (const [key, generic] of LOOKUP) {
+    if (key.includes(q) || q.includes(key)) {
+      matched.add(generic);
+    }
+  }
+
+  // 3. Fallback: zoek in DB.generic zelf
+  for (const entry of DB) {
+    if (norm(entry.generic).includes(q)) matched.add(entry.generic);
+  }
+
+  return DB.filter(e => matched.has(e.generic));
+}
+
+// Risico-labels in het Nederlands
+const RISK_LABEL = {
+  AVOID:       "VERMIJDEN",
+  PREF_AVOID:  "LIEFST VERMIJDEN",
+  CONDITIONAL: "VOORZICHTIG",
+  SAFE:        "VEILIG",
+};
+
+function renderCard(entry, query) {
+  const products = CSV_LOOKUP[entry.generic] || [];
+  const manualAliases = ALIASES[entry.generic] || [];
+
+  // Zoek Belgische productnamen die relevant zijn voor de zoekopdracht
+  const allAliases = [...products, ...manualAliases];
+
+  // Highlight de generieke naam
+  const genericDisplay = entry.generic.charAt(0).toUpperCase() + entry.generic.slice(1);
+
+  let productsHtml = "";
+  if (products.length > 0) {
+    productsHtml = `<div class="card-products"><strong>Belgische productnamen:</strong> ${products.join(", ")}</div>`;
+  }
+
+  return `
+    <div class="card ${entry.risk}">
+      <div class="card-header">
+        <span class="card-name">${genericDisplay}</span>
+        <span class="badge ${entry.risk}">${RISK_LABEL[entry.risk]}</span>
+      </div>
+      <div class="card-category">${entry.category}</div>
+      ${entry.note ? `<div class="card-note">${entry.note}</div>` : ""}
+      ${productsHtml}
+    </div>`;
+}
+
+function search() {
+  const query = document.getElementById("query").value.trim();
+  const container = document.getElementById("results");
+
+  if (query.length < 2) {
+    container.innerHTML = `<div class="no-result">Typ minstens 2 tekens om te zoeken.</div>`;
+    return;
+  }
+
+  const matches = findMatches(query);
+
+  if (matches.length === 0) {
+    container.innerHTML = `<div class="no-result">
+      Geen resultaat gevonden voor "<strong>${escapeHtml(query)}</strong>".<br>
+      Probeer de generieke naam (bijv. <em>flecainide</em>) of een Belgische merknaam (bijv. <em>Tambocor</em>).
+    </div>`;
+    return;
+  }
+
+  // Sorteer: AVOID eerst, dan PREF_AVOID, CONDITIONAL, SAFE
+  const ORDER = { AVOID: 0, PREF_AVOID: 1, CONDITIONAL: 2, SAFE: 3 };
+  matches.sort((a, b) => (ORDER[a.risk] ?? 9) - (ORDER[b.risk] ?? 9));
+
+  container.innerHTML = matches.map(e => renderCard(e, query)).join("");
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Enter-toets activeer zoeken
+document.getElementById("query").addEventListener("keydown", e => {
+  if (e.key === "Enter") search();
+});
+
+// Live zoeken bij invoer (met kleine vertraging)
+let debounceTimer;
+document.getElementById("query").addEventListener("input", () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(search, 300);
+});
+</script>
+</body>
+</html>
