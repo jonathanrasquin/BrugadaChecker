@@ -562,8 +562,7 @@ function buildLookup() {
 
   const addEntry = (term, generic) => {
     const key = norm(term);
-    if (key && !lookup.has(key)) lookup.set(key, generic);
-    // Prefix-optimalisatie: ook eerste 3+ tekens voor prefix-zoeken
+    if (key) lookup.set(key, generic);
   };
 
   for (const entry of DB) {
@@ -590,8 +589,9 @@ function findMatches(query) {
   if (LOOKUP.has(q)) matched.add(LOOKUP.get(q));
 
   // 2. Prefix- en substring-overeenkomst in de lookup-sleutels
+  // Minimumlengte van 3 voor de sleutel om te brede matches te vermijden
   for (const [key, generic] of LOOKUP) {
-    if (key.includes(q) || q.includes(key)) {
+    if (key.length >= 3 && (key.includes(q) || (q.length >= 3 && q.includes(key)))) {
       matched.add(generic);
     }
   }

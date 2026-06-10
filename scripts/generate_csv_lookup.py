@@ -144,18 +144,21 @@ BRUGADA_DRUG_SUBSTANCES = {
 }
 
 
-def find_products(drug_substances, stof, sam_by_stof, mp):
+def build_name_index(stof):
+    """Bouw een omgekeerde index: stofnaam (lowercase) → lijst van stofcodes."""
+    name_to_codes = defaultdict(list)
+    for code, name in stof.items():
+        name_to_codes[name.lower()].append(code)
+    return name_to_codes
+
+
+def find_products(drug_substances, name_to_codes, sam_by_stof, mp):
     """
     Bouw een dict: generieke sleutel → gesorteerde lijst van Belgische productnamen.
 
     Alleen exacte overeenkomsten van de basisnaam worden gebruikt om
     verkeerde koppelingen te vermijden.
     """
-    # Bouw een omgekeerde index: exacte stofnaam (lower) → stofcode
-    name_to_codes = defaultdict(list)
-    for code, name in stof.items():
-        name_to_codes[name.lower()].append(code)
-
     results = {}
     for drug, substnames in drug_substances.items():
         product_names = set()
@@ -199,7 +202,8 @@ def main():
     sam_by_stof = load_sam(sam_path)
     mp = load_mp(mp_path)
 
-    results = find_products(BRUGADA_DRUG_SUBSTANCES, stof, sam_by_stof, mp)
+    name_to_codes = build_name_index(stof)
+    results = find_products(BRUGADA_DRUG_SUBSTANCES, name_to_codes, sam_by_stof, mp)
     print(format_js(results))
 
 
